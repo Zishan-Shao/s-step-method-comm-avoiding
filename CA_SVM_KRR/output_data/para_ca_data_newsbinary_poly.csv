@@ -1,0 +1,1 @@
+filename,kernel,num_process,s,blksize,degree,max_iter,Gauss_para,LAMBDA,csr_setup_time,kernel_computation,allreduce_time,sample_time,csr_read_time,gradient_comp_time,alpha_update,memory_reset,major_time,runtime
