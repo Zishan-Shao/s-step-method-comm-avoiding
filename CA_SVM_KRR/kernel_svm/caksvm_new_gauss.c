@@ -45,11 +45,11 @@ int main(int argc, char *argv[]) {
         return 1;
     }
     
-    
-    char filename[50] = "mnist.scale";// "breast-cancer_scale.txt";
+    /*
+    char filename[50] = "leu";// "breast-cancer_scale.txt";
 
-    int N = 60000;   // n is num observation, m is num features
-    int M = 780;   // n,m are dimension of the A, dimension of b is n * 1
+    int N = 38;   // n is num observation, m is num features
+    int M = 7129;    // n,m are dimension of the A, dimension of b is n * 1
 
     // define hyper parameters: BLKSIZE, LAMBDA, MAXIT, GAMMA, KERNEL, tol, seed, s (if cabdccd)
     char KERNEL[10] = "gauss";
@@ -61,10 +61,63 @@ int main(int argc, char *argv[]) {
     double OMEGA = 0;
     int s = atoi(argv[1]); //64;
     int BLKSIZE = 1;
-    
-    
+    */
 
     /*
+    char filename[50] = "webspam_wc_normalized";
+
+    int N = 350000;   // n is num observation, m is num features
+    int M = 16609143;   // n,m are dimension of the A, dimension of b is n * 1
+
+    // define hyper parameters: BLKSIZE, LAMBDA, MAXIT, GAMMA, KERNEL, tol, seed, s (if cabdccd)
+    char KERNEL[10] = "gauss";
+    int MAXIT = atoi(argv[2]);// 5000;
+    double GAMMA = 1;
+    int seed = 42;
+    double LAMBDA = 1;  // 0.011314236798389;
+    int degree = 5;
+    double OMEGA = 0;
+    int s = atoi(argv[1]); //64;
+    int BLKSIZE = 1;
+    */
+
+    /*
+    char filename[50] = "leu";// "breast-cancer_scale.txt";
+
+    int N = 38;   // n is num observation, m is num features
+    int M = 7129;    // n,m are dimension of the A, dimension of b is n * 1
+
+    // define hyper parameters: BLKSIZE, LAMBDA, MAXIT, GAMMA, KERNEL, tol, seed, s (if cabdccd)
+    char KERNEL[10] = "gauss";
+    int MAXIT = atoi(argv[2]);// 5000;
+    double GAMMA = 1;
+    int seed = 42;
+    double LAMBDA = 1;  // 0.011314236798389;
+    int degree = 5;
+    double OMEGA = 0;
+    int s = atoi(argv[1]); //64;
+    int BLKSIZE = 1;
+    */
+    
+   /*
+    char filename[50] = "colon-cancer";// "breast-cancer_scale.txt";
+
+    int N = 62;   // n is num observation, m is num features
+    int M = 2000;    // n,m are dimension of the A, dimension of b is n * 1
+
+    // define hyper parameters: BLKSIZE, LAMBDA, MAXIT, GAMMA, KERNEL, tol, seed, s (if cabdccd)
+    char KERNEL[10] = "gauss";
+    int MAXIT = atoi(argv[2]);// 5000;
+    double GAMMA = 1;
+    int seed = 42;
+    double LAMBDA = 1;  // 0.011314236798389;
+    int degree = 5;
+    double OMEGA = 0;
+    int s = atoi(argv[1]); //64;
+    int BLKSIZE = 1;
+    */
+
+    
     char filename[50] = "news20.binary";
 
     int N = 19996;   // n is num observation, m is num features
@@ -80,7 +133,7 @@ int main(int argc, char *argv[]) {
     double OMEGA = 0;
     int s = atoi(argv[1]); //64;
     int BLKSIZE = 1;
-    */
+    
 
     /*
     char filename[50] = "duke";
@@ -116,19 +169,10 @@ int main(int argc, char *argv[]) {
     int rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);   // communicate across all processes
 
-    
+
     // open the CSV file for writing
     FILE* fp = NULL;
-    if (rank == 0) {
-        // /deac/csc/devarakondaGrp/shaoz20/C-Code-krr-cakrr/CSC393/testing/result_data/
-        fp = fopen("caksvm_data_mnist_gauss.csv", "a");
-        if (fp == NULL) {
-            printf("Failed to open file for writing\n");
-            MPI_Abort(MPI_COMM_WORLD, 1);
-            return 1;
-        }
-    }
-    
+
 
     double runtime = 0.0;
     double memory_reset = 0.0;
@@ -145,7 +189,7 @@ int main(int argc, char *argv[]) {
     double eta = 0.0;
     double grad = 0.0;
 
-    int max_line = 5000000;   // note: if one line of feature has more than 2000 characters, need to enlarge it
+    int max_line = 5000000;    // note: if one line of feature has more than 2000 characters, need to enlarge it
 
     memory_reset_start = MPI_Wtime();
     // initialize the struct
@@ -278,6 +322,10 @@ int main(int argc, char *argv[]) {
     double gradient_comp_start = 0.0;
     double gradient_comp_end = 0.0;
     double gradient_comp = 0.0;
+    double kernel_loop_time = 0.0;
+    
+    double kernel_in_gauss = 0.0;
+    double kernel_sp2md = 0.0;
 
 
 
@@ -302,6 +350,21 @@ int main(int argc, char *argv[]) {
 
     // do the norm here
     double * norm = (double *) calloc(N, sizeof(double)); // norm vector should be n sized, as diagonal vector of a [N,N] matrix
+    sparse_matrix_t csr_handle;
+    // Initialize vectors of 1s, there should be two, one for norm[idx[j]], one for norm[j]
+    double * ones_blksize = (double *) calloc(s*BLKSIZE, sizeof(double));
+    double * ones_N = (double *) calloc(N, sizeof(double));
+
+    // setup the ones vector
+    memset(ones_blksize, 1.0, s*BLKSIZE*(double));
+    memset(ones_N, 1.0, N*sizeof(double));
+
+
+    // define the selected norm entries to later we can use it for 
+    // cblas_dger computation, it is [s,1] and we times it with a 
+    // 1 vector with size [1,N] to create a [s,N] matrix which each
+    // row are the current idx[i] entries of norm
+    double * idx_norm = (double *) calloc(s*BLKSIZE, sizeof(double));
     
     if (csr->nnz > 0) {
         
@@ -322,6 +385,14 @@ int main(int argc, char *argv[]) {
 
             // norm[i] = val*val;
         }
+
+        // compute the csr handle
+        mkl_sparse_d_create_csr(&csr_handle, SPARSE_INDEX_BASE_ZERO, n, m, csr->row_b, csr->row_e, csr->col, csr->val);
+        // Descriptor of main sparse matrix properties
+        struct matrix_descr descr_Rows;
+        descr_Rows.type = SPARSE_MATRIX_TYPE_GENERAL;
+        descr_Rows.mode = SPARSE_FILL_MODE_FULL;
+        descr_Rows.diag = SPARSE_DIAG_NON_UNIT;
     }
    
 
@@ -337,6 +408,12 @@ int main(int argc, char *argv[]) {
 
         if (scale_A->nnz > 0) {
             sparse_sample_A_bdcd(scale_sample, scale_A, 1*s, sub_blk, idx);
+
+            // updates the idx_norm, selecting elements from the norm vector
+            for(int i = 0; i < s*BLKSIZE; ++i) {
+                idx_norm[i] = norm[idx[i]];
+            }
+
         }
 
         sample_end_time = MPI_Wtime();
@@ -355,7 +432,7 @@ int main(int argc, char *argv[]) {
                 linear(scale_sample, scale_A, N, sub_blk, 1*s, k_para); 
             }
             else if (strcmp(KERNEL, "gauss") == 0) {
-                gaussian(1*s, N, sub_blk, scale_sample, scale_A, k_para, idx, norm); 
+                gaussian(1*s, N, sub_blk, scale_sample, scale_A, k_para, idx, norm, &kernel_in_gauss, &kernel_sp2md, ones_N, ones_blksize, idx_norm); 
             }
         }
 
@@ -363,6 +440,7 @@ int main(int argc, char *argv[]) {
         kernel_end_time = MPI_Wtime();
         kernel_computation = kernel_computation + kernel_end_time - kernel_start_time;
 
+        // MPI_Barrier(MPI_COMM_WORLD);
 
         // ############### AllReduce() time ##################
         allreduce_start_time = MPI_Wtime();
@@ -381,19 +459,24 @@ int main(int argc, char *argv[]) {
         if (strcmp(KERNEL, "poly") == 0) {
             // make element wise multiplication
             for (int i = 0; i < N*s; ++i) {
-                k_row[i] = pow(k_row[i], degree) * GAMMA;
+                k_row[i] = pow(k_row[i], degree);
             }
+            cblas_dscal(s*N, GAMMA, k_row, 1);
         }
         else if (strcmp(KERNEL, "gauss") == 0) {
-             // Apply the exponential function element-wise to the k array
+            // Apply the exponential function element-wise to the k array
+            // Scale the array using cblas_dscal
+            cblas_dscal(s*N, GAMMA*(-1.0), k_row, 1);
             for (int i = 0; i < N*s; i++) {
-                k_row[i] = exp(-GAMMA * k_row[i]);
+                // do the -GAMMA * k_row[i] with cblas_dscal()
+                k_row[i] = exp(k_row[i]);
             }
         }
         full_kernel_end_time = MPI_Wtime();
-        kernel_computation = kernel_computation + full_kernel_end_time - full_kernel_start_time;
+        // kernel_computation = kernel_computation + full_kernel_end_time - full_kernel_start_time;
+        kernel_loop_time = full_kernel_end_time - full_kernel_start_time;
+        kernel_computation = kernel_computation + kernel_loop_time;
         
-    
         gradient_comp_start = MPI_Wtime();
 
         for (int i = 0; i < s; ++i) {
@@ -453,14 +536,14 @@ int main(int argc, char *argv[]) {
             }    
 
 
-            double result = 0.0; 
-            for (int i = 0; i < N; ++i) {
-                result = result + alpha[i] * csr->label[i];
-            }
+            // double result = 0.0; 
+            // for (int i = 0; i < N; ++i) {
+            //     result = result + alpha[i] * csr->label[i];
+            // }
 
-            if (rank == 0) {
-                printf("\nresult: %.12f\n", result);
-            }
+            //if (rank == 0) {
+            //    printf("\nresult: %.12f\n", result);
+            //}
             /*
             printf("theta:\n");
             for (int p = 0; p < s; ++p) {
@@ -492,6 +575,8 @@ int main(int argc, char *argv[]) {
         // memset(grad, 0, s*sizeof(double));
         memset(k_row, 0, s*N*sizeof(double));
         memset(k_para, 0, s*N*sizeof(double));
+        memset(idx_norm, 0, s*BLKSIZE);
+        
         
         if (scale_sample->nnz > 0) {
             free(scale_sample->col);
@@ -519,6 +604,14 @@ int main(int argc, char *argv[]) {
     
     // make everything one file
     if (rank == 0) {
+
+        fp = fopen("caksvm_data_newsbinary_gauss.csv", "a");
+        if (fp == NULL) {
+            printf("Failed to open file for writing\n");
+            MPI_Abort(MPI_COMM_WORLD, 1);
+            return 1;
+        }
+    
         
         major_time = (kernel_computation + allreduce_time + sample_time + gradient_comp + alpha_updating + memory_reset) / (MAXIT * 1.0);
 
@@ -531,9 +624,8 @@ int main(int argc, char *argv[]) {
 
         // print the result
         printf("%s, %s, %d, %d, %d, %d, %d, %.10f, %.10f, %.10f, %.10f, %.10f, %.10f, %.10f, %.10f, %.10f, %.10f, %.10f, %.10f\n", filename, KERNEL, size, s, BLKSIZE, degree, MAXIT, GAMMA, LAMBDA, csr_setup_time, kernel_computation / (MAXIT * 1.0), allreduce_time / (MAXIT * 1.0), sample_time / (MAXIT * 1.0), csr_read_time, gradient_comp / (MAXIT * 1.0), alpha_updating / (MAXIT * 1.0), memory_reset / (MAXIT * 1.0), major_time,runtime);
+        printf("%.10f, %.10f, %.10f, %.10f\n", kernel_computation / (MAXIT * 1.0), kernel_loop_time / (MAXIT * 1.0), kernel_in_gauss / (MAXIT * 1.0), kernel_sp2md / (MAXIT * 1.0));
     }
-    
-    MPI_Finalize();
 
     
     // free all allocated memories of array
@@ -545,6 +637,9 @@ int main(int argc, char *argv[]) {
     free(idx);
     free(theta);
     free(norm);
+    free(ones_blksize);
+    free(ones_N);
+    free(idx_norm);
    
     // free the csr matrices
     free(csr->col);
@@ -568,10 +663,16 @@ int main(int argc, char *argv[]) {
     free(scale_sample->row_b);
     free(scale_sample->row_e);
     free(scale_sample);
+
+    mkl_sparse_destroy(csr_handle);
     
    
     printf("All freed \n");
     printf("Finally done!\n");
+
+
+
+    MPI_Finalize();
 
     return 0;
 }
@@ -686,7 +787,8 @@ void polynomial(Element* sample_A, Element* csr, int n, int m, int blksize, doub
 // m is num features (columns) in A (v)
 // n is num observations (rows) in A (v)
 // blksize is num features selected
-void gaussian(int blksize, int n, int m, Element *sample_A_sparse, Element * csr, double *k, double gamma, int * idx, double * norm) {
+// void gaussian(int blksize, int n, int m, Element *sample_A_sparse, Element * csr, double *k, double gamma, int * idx, double * norm, double * gauss_in_loop, double * kernel_sp2md) {
+void gaussian(int blksize, int n, int m, Element *sample_A_sparse, sparse_matrix_t csr_handle, double *k, double gamma, int * idx, double * norm, double * gauss_in_loop, double * kernel_sp2md, double * ones_N, double * ones_blksize, double * idx_norm) {
 
     
     // computes the ai ^T aj matrix, which is a [blksize * s, N] matrix
@@ -702,7 +804,7 @@ void gaussian(int blksize, int n, int m, Element *sample_A_sparse, Element * csr
     descr_sampledRows.mode = SPARSE_FILL_MODE_FULL;
     descr_sampledRows.diag = SPARSE_DIAG_NON_UNIT;
 
-
+    /*
     sparse_matrix_t csr_handle;
     mkl_sparse_d_create_csr(&csr_handle, SPARSE_INDEX_BASE_ZERO, n, m, csr->row_b, csr->row_e, csr->col, csr->val);
     // Descriptor of main sparse matrix properties
@@ -710,10 +812,12 @@ void gaussian(int blksize, int n, int m, Element *sample_A_sparse, Element * csr
     descr_Rows.type = SPARSE_MATRIX_TYPE_GENERAL;
     descr_Rows.mode = SPARSE_FILL_MODE_FULL;
     descr_Rows.diag = SPARSE_DIAG_NON_UNIT;
+    */
 
-   
+    double dot_product = 0.0;
+    dot_product = MPI_Wtime();
     // Compute the dot product between the two matrices
-    sparse_status_t error = mkl_sparse_d_sp2md(SPARSE_OPERATION_NON_TRANSPOSE, descr_sampledRows, sample_handle, SPARSE_OPERATION_TRANSPOSE, descr_Rows, csr_handle, 1.0, 0.0, k, SPARSE_LAYOUT_ROW_MAJOR, n);
+    sparse_status_t error = mkl_sparse_d_sp2md(SPARSE_OPERATION_NON_TRANSPOSE, descr_sampledRows, sample_handle, SPARSE_OPERATION_TRANSPOSE, descr_Rows, csr_handle, -2.0, 0.0, k, SPARSE_LAYOUT_ROW_MAJOR, n);
     // print the error:
     int curr_rank; 
     MPI_Comm_rank(MPI_COMM_WORLD, &curr_rank);
@@ -721,19 +825,34 @@ void gaussian(int blksize, int n, int m, Element *sample_A_sparse, Element * csr
     if (error != SPARSE_STATUS_SUCCESS) {
         printf("error from gaussian kernel comp: %d | rank = %d\n", error, curr_rank);
     }
+    kernel_sp2md[0] = kernel_sp2md[0] + MPI_Wtime() - dot_product;
 
     // destroy the handles to save the memory
     mkl_sparse_destroy(sample_handle);
-    mkl_sparse_destroy(csr_handle);
+    // mkl_sparse_destroy(csr_handle);
 
     // printf("\nMKL Kernel Done!\n");
 
     // compute the gaussian kernel
+    // do not use this double loop here
+    double gauss_loop = 0.0;
+    gauss_loop = MPI_Wtime();
+    /*
     for(int i = 0; i < blksize; ++i) {
         for (int j = 0; j < n; ++j) {
             k[j + i*n] = norm[idx[i]] + norm[j] - 2 * k[j + i*n];
         }
     }
+    */
+    
+    
+    // Perform rank-1 update to add norm[j] to k
+    cblas_dger(CblasRowMajor, s, N, 1.0, ones_blksize, 1, norm, 1, k_row, N);
+    // Perform rank-1 update to add norm[idx[i]] to k
+    cblas_dger(CblasRowMajor, s, N, 1.0, idx_norm, 1, ones_N, 1, k_row, N);
+
+    gauss_in_loop[0] = gauss_in_loop[0] + MPI_Wtime() - gauss_loop;
+    // printf("gauss in loop: %.12f\n", gauss_in_loop);
 
 }
 
@@ -951,7 +1070,7 @@ void csr_setup_bdcd(Element * csr, int MAX_LINE_LENGTH, char * filename, int N, 
     csr->col = (int*) calloc(csr->nnz, sizeof(int));   // as many as nnz (as each location of nnz will be recorded here)
     csr->val = (double*) malloc(csr->nnz * sizeof(double));   
 
-    printf("csr setup nnz: %d \n", csr->nnz);
+    //printf("csr setup nnz: %d \n", csr->nnz);
 
 }
 
