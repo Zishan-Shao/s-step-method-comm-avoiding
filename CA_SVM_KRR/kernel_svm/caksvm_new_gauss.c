@@ -350,12 +350,12 @@ int main(int argc, char *argv[]) {
 
     // do the norm here
     double * norm = (double *) calloc(N, sizeof(double)); // norm vector should be n sized, as diagonal vector of a [N,N] matrix
-    sparse_matrix_t csr_handle;
+    // sparse_matrix_t csr_handle;
     
-    struct matrix_descr descr_Rows;
-    descr_Rows.type = SPARSE_MATRIX_TYPE_GENERAL;
-    descr_Rows.mode = SPARSE_FILL_MODE_FULL;
-    descr_Rows.diag = SPARSE_DIAG_NON_UNIT;
+    //struct matrix_descr descr_Rows;
+    //descr_Rows.type = SPARSE_MATRIX_TYPE_GENERAL;
+    //descr_Rows.mode = SPARSE_FILL_MODE_FULL;
+    //descr_Rows.diag = SPARSE_DIAG_NON_UNIT;
 
     // Initialize vectors of 1s, there should be two, one for norm[idx[j]], one for norm[j]
     double * ones_blksize = (double *) calloc(s*BLKSIZE, sizeof(double));
@@ -393,7 +393,7 @@ int main(int argc, char *argv[]) {
         }
 
         // compute the csr handle
-        mkl_sparse_d_create_csr(&csr_handle, SPARSE_INDEX_BASE_ZERO, N, M, scale_A->row_b, scale_A->row_e, scale_A->col, scale_A->val);
+        // mkl_sparse_d_create_csr(&csr_handle, SPARSE_INDEX_BASE_ZERO, N, M, scale_A->row_b, scale_A->row_e, scale_A->col, scale_A->val);
         // Descriptor of main sparse matrix properties
     }
    
@@ -434,7 +434,7 @@ int main(int argc, char *argv[]) {
                 linear(scale_sample, scale_A, N, sub_blk, 1*s, k_para); 
             }
             else if (strcmp(KERNEL, "gauss") == 0) {
-                gaussian(1*s, N, sub_blk, scale_sample, scale_A, k_para, idx, norm, &kernel_in_gauss, &kernel_sp2md, ones_N, ones_blksize, idx_norm, descr_Rows); 
+                gaussian(1*s, N, sub_blk, scale_sample, scale_A, k_para, idx, norm, &kernel_in_gauss, &kernel_sp2md, ones_N, ones_blksize, idx_norm); 
             }
         }
 
@@ -666,8 +666,9 @@ int main(int argc, char *argv[]) {
     free(scale_sample->row_e);
     free(scale_sample);
 
-    mkl_sparse_destroy(csr_handle);
-    
+    //if (csr->nnz > 0) {
+    //    mkl_sparse_destroy(csr_handle);
+    //}
    
     printf("All freed \n");
     printf("Finally done!\n");
@@ -790,7 +791,7 @@ void polynomial(Element* sample_A, Element* csr, int n, int m, int blksize, doub
 // n is num observations (rows) in A (v)
 // blksize is num features selected
 // void gaussian(int blksize, int n, int m, Element *sample_A_sparse, Element * csr, double *k, double gamma, int * idx, double * norm, double * gauss_in_loop, double * kernel_sp2md) {
-void gaussian(int blksize, int n, int m, Element *sample_A_sparse, sparse_matrix_t csr_handle, double *k, double gamma, int * idx, double * norm, double * gauss_in_loop, double * kernel_sp2md, double * ones_N, double * ones_blksize, double * idx_norm, struct matrix_descr descr_Rows) {
+void gaussian(int blksize, int n, int m, Element *sample_A_sparse, Element * csr, double *k, double gamma, int * idx, double * norm, double * gauss_in_loop, double * kernel_sp2md, double * ones_N, double * ones_blksize, double * idx_norm) {
 
     
     // computes the ai ^T aj matrix, which is a [blksize * s, N] matrix
@@ -806,15 +807,16 @@ void gaussian(int blksize, int n, int m, Element *sample_A_sparse, sparse_matrix
     descr_sampledRows.mode = SPARSE_FILL_MODE_FULL;
     descr_sampledRows.diag = SPARSE_DIAG_NON_UNIT;
 
-    /*
+    
     sparse_matrix_t csr_handle;
     mkl_sparse_d_create_csr(&csr_handle, SPARSE_INDEX_BASE_ZERO, n, m, csr->row_b, csr->row_e, csr->col, csr->val);
+    
     // Descriptor of main sparse matrix properties
     struct matrix_descr descr_Rows;
     descr_Rows.type = SPARSE_MATRIX_TYPE_GENERAL;
     descr_Rows.mode = SPARSE_FILL_MODE_FULL;
     descr_Rows.diag = SPARSE_DIAG_NON_UNIT;
-    */
+
 
     double dot_product = 0.0;
     dot_product = MPI_Wtime();
@@ -831,7 +833,7 @@ void gaussian(int blksize, int n, int m, Element *sample_A_sparse, sparse_matrix
 
     // destroy the handles to save the memory
     mkl_sparse_destroy(sample_handle);
-    // mkl_sparse_destroy(csr_handle);
+    mkl_sparse_destroy(csr_handle);
 
     // printf("\nMKL Kernel Done!\n");
 
