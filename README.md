@@ -1,7 +1,11 @@
-# s-step-method-comm-avoiding
-s-step method communication avoiding algorithms
+# s-step-kernel-method
+This repository contains s-step dual coordinate descent algorithms for solving kernel SVM and kernel ridge regression problems.
 
-Workflow:
+Authors: 
+- Zishan Shao (lead developer)
+- Aditya Devarakonda
+
+## Workflow
 
 1. Preparing for datasets
    - all datasets are available in libsvm official website: [https://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/binary.html](https://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/)
@@ -18,3 +22,27 @@ Workflow:
    - edit the settings such as s values, num processes, maximum iterations (MAXIT)
    - submit the job via: sbatch for_loop_submission.slurm
 
+## Usage and Acknowledgement
+The repository is released under the BSD 2-clause license, so please feel free to use and/or modify accordingly.
+
+A technical report presenting the derivation, analysis and performance of the algorithms is available on arXiv: https://arxiv.org/abs/2406.18001
+
+Please cite the technical report if you use this repository.
+
+``
+@misc{shao2024scalabledualcoordinatedescent,
+      title={Scalable Dual Coordinate Descent for Kernel Methods}, 
+      author={Zishan Shao and Aditya Devarakonda},
+      year={2024},
+      eprint={2406.18001},
+      archivePrefix={arXiv},
+      primaryClass={cs.DC},
+      url={https://arxiv.org/abs/2406.18001}, 
+}
+``
+
+## Contact Information
+
+Collaborations and code contributions are welcome!
+
+Please email Aditya Devarakonda, devaraa@wfu.edu, with any questions or comments.
