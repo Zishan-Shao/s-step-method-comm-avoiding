@@ -1,5 +1,10 @@
 # s-step-method-comm-avoiding
-s-step method communication avoiding algorithms
+
+Dual Coordinate Descent (DCD) and Block Dual Coordinate Descent (BDCD) are important iterative methods for solving convex optimization problems. In this work, we develop scalable DCD and BDCD methods for the kernel support vector machines (K-SVM) and kernel ridge regression (K-RR) problems. On distributed-memory parallel machines the scalability of these methods is limited by the need to communicate every iteration. On modern hardware where communication is orders of magnitude more expensive, the running time of the DCD and BDCD methods is dominated by communication cost. We address this communication bottleneck by deriving s-step variants of DCD and BDCD for solving the K-SVM and K-RR problems, respectively. The s-step variants reduce the frequency of communication by a tunable factor of s at the expense of additional bandwidth and computation. The s-step variants compute the same solution as the existing methods in exact arithmetic. We perform numerical experiments to illustrate that the s-step variants are also numerically stable in finite-arithmetic, even for large values of s. We perform theoretical analysis to bound the computation and communication costs of the newly designed variants, up to leading order. Finally, we develop high performance implementations written in C and MPI and present scaling experiments performed on a Cray EX cluster. The new s-step variants achieved strong scaling speedups of up to 9.8× over existing methods using up to 512 cores.
+
+
+For more details regarding this research project, see: Shao, Zishan, and Aditya Devarakonda. "Scalable Dual Coordinate Descent for Kernel Methods." arXiv preprint arXiv:2406.18001 (2024).
+
 
 Workflow:
 
